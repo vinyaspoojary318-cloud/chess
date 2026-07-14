@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { User } from 'firebase/auth';
-import { initFirebase, onAuthStateChanged, getAuthInstance } from '../config/firebase';
+import { supabase } from '../config/supabase';
+import type { User } from '@supabase/supabase-js';
 
 interface AuthState {
   user: User | null;
@@ -8,6 +8,7 @@ interface AuthState {
   initialized: boolean;
   initAuth: () => void;
   mockGuestLogin: () => void;
+  signOut: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -18,19 +19,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initAuth: () => {
     if (get().initialized) return;
     
-    try {
-      initFirebase();
-      const auth = getAuthInstance();
-      onAuthStateChanged(auth, (user) => {
-        set({ user, loading: false, initialized: true });
-      });
-    } catch (err) {
-      console.warn('Firebase init failed (likely missing .env configuration). Running in offline mode.');
-      set({ loading: false, initialized: true });
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      set({ user: session?.user ?? null, loading: false, initialized: true });
+    });
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      set({ user: session?.user ?? null, loading: false });
+    });
+  },
+  
+  mockGuestLogin: async () => {
+    const { data, error } = await supabase.auth.signInAnonymously();
+    if (!error && data.user) {
+      set({ user: data.user, loading: false, initialized: true });
+    } else {
+      console.warn('Anonymous login failed. Generating local guest user.');
+      set({ user: { id: 'guest-local-user', email: 'guest@chess.local' } as User, loading: false, initialized: true });
     }
   },
   
-  mockGuestLogin: () => {
-    set({ user: { uid: 'guest-local-user' } as any, loading: false, initialized: true });
+  signOut: async () => {
+    await supabase.auth.signOut();
+    set({ user: null });
   }
 }));

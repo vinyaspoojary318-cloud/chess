@@ -9,20 +9,8 @@ import type {
 import { analyzeGame, getBestMove } from '../lib/analysis';
 import { stockfishManager } from '../lib/stockfishManager';
 import { playMoveByType, playAnalysisCompleteSound, playErrorSound } from '../lib/soundEffects';
-import { initFirebase, getDb } from '../config/firebase';
+import { supabase } from '../config/supabase';
 import { useAuthStore } from './useAuthStore';
-import {
-  collection,
-  addDoc,
-  getDocs,
-  deleteDoc,
-  doc,
-  query,
-  where,
-  orderBy,
-  serverTimestamp,
-  Timestamp,
-} from 'firebase/firestore';
 
 interface GameStore {
   // Current game state
@@ -61,21 +49,10 @@ interface GameStore {
 
 const createFreshChess = () => new Chess();
 
-function convertFirestoreDoc(id: string, data: any): GameData {
-  // Convert Firestore Timestamp to number
-  let playedAt: number;
-  if (data.playedAt && typeof data.playedAt === 'object' && 'toDate' in data.playedAt) {
-    playedAt = (data.playedAt as Timestamp).toDate().getTime();
-  } else if (typeof data.playedAt === 'number') {
-    playedAt = data.playedAt;
-  } else {
-    playedAt = Date.now();
-  }
-
+function convertSupabaseRow(data: any): GameData {
   return {
     ...data,
-    id,
-    playedAt,
+    playedAt: new Date(data.playedAt).getTime(),
   } as GameData;
 }
 
@@ -294,18 +271,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!gameData) return null;
 
     try {
-      initFirebase();
-      const userId = useAuthStore.getState().user?.uid;
+      const userId = useAuthStore.getState().user?.id;
       if (!userId) {
         console.error('User not authenticated');
         return null;
       }
 
-      const db = getDb();
-      const docRef = await addDoc(collection(db, 'games'), {
-        pgn: gameData.pgn,
-        playedAt: serverTimestamp(),
+      const { data, error } = await supabase.from('games').insert({
         userId,
+        pgn: gameData.pgn,
+        playedAt: new Date().toISOString(),
         white: gameData.white,
         black: gameData.black,
         result: gameData.result,
@@ -316,9 +291,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
         inaccuracies: gameData.inaccuracies,
         goodMoves: gameData.goodMoves,
         bestMoves: gameData.bestMoves,
-      });
+      }).select().single();
 
-      return docRef.id;
+      if (error) throw error;
+      return data.id;
     } catch (err) {
       console.error('Error saving game:', err);
       return null;
@@ -329,25 +305,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ gamesLoading: true });
 
     try {
-      initFirebase();
-      const userId = useAuthStore.getState().user?.uid;
+      const userId = useAuthStore.getState().user?.id;
       if (!userId) {
         set({ gamesLoading: false });
         return;
       }
 
-      const db = getDb();
-      const q = query(
-        collection(db, 'games'),
-        where('userId', '==', userId),
-        orderBy('playedAt', 'desc')
-      );
-      const snapshot = await getDocs(q);
-      const games: GameData[] = [];
-      snapshot.forEach((doc) => {
-        games.push(convertFirestoreDoc(doc.id, doc.data()));
-      });
+      const { data, error } = await supabase
+        .from('games')
+        .select('*')
+        .eq('userId', userId)
+        .order('playedAt', { ascending: false });
 
+      if (error) throw error;
+
+      const games: GameData[] = (data || []).map(row => convertSupabaseRow(row));
       set({ savedGames: games, gamesLoading: false });
     } catch (err) {
       console.error('Error loading games:', err);
@@ -357,8 +329,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   deleteGame: async (id: string) => {
     try {
-      const db = getDb();
-      await deleteDoc(doc(db, 'games', id));
+      await supabase.from('games').delete().eq('id', id);
       set((state) => ({
         savedGames: state.savedGames.filter((g) => g.id !== id),
       }));

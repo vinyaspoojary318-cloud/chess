@@ -2,7 +2,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { VolumeControl } from './VolumeControl';
 import { SoundToggle } from './SoundToggle';
 import { useAuthStore } from '../stores/useAuthStore';
-import { signOut, getAuthInstance } from '../config/firebase';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -45,7 +44,7 @@ export function Layout({ children }: LayoutProps) {
               {useAuthStore((s) => s.user) && (
                 <button 
                   className="btn btn-ghost btn-sm" 
-                  onClick={() => signOut(getAuthInstance())}
+                  onClick={() => useAuthStore.getState().signOut()}
                   style={{ marginLeft: '1rem' }}
                 >
                   Log Out

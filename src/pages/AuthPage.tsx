@@ -1,11 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  getAuthInstance, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword,
-  signInAnonymously
-} from '../config/firebase';
+import { supabase } from '../config/supabase';
+import { useAuthStore } from '../stores/useAuthStore';
 
 export function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -14,6 +10,7 @@ export function AuthPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const mockGuestLogin = useAuthStore(state => state.mockGuestLogin);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,20 +23,26 @@ export function AuthPage() {
     setLoading(true);
 
     try {
-      const auth = getAuthInstance();
-      // We map the username to a dummy email behind the scenes for Firebase Auth
       const dummyEmail = `${username.toLowerCase().replace(/[^a-z0-9]/g, '')}@chess.local`;
       
       if (isLogin) {
-        await signInWithEmailAndPassword(auth, dummyEmail, password);
+        const { error: authError } = await supabase.auth.signInWithPassword({
+          email: dummyEmail,
+          password: password,
+        });
+        if (authError) throw authError;
       } else {
-        await createUserWithEmailAndPassword(auth, dummyEmail, password);
+        const { error: authError } = await supabase.auth.signUp({
+          email: dummyEmail,
+          password: password,
+        });
+        if (authError) throw authError;
       }
       navigate('/');
     } catch (err: any) {
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+      if (err.message.includes('Invalid login credentials')) {
         setError('Invalid username or password');
-      } else if (err.code === 'auth/email-already-in-use') {
+      } else if (err.message.includes('User already registered')) {
         setError('Username already taken. Please choose another one.');
       } else {
         setError(err.message);
@@ -52,17 +55,8 @@ export function AuthPage() {
   const handleGuestLogin = async () => {
     setError('');
     setLoading(true);
-    try {
-      const auth = getAuthInstance();
-      await signInAnonymously(auth);
-      navigate('/');
-    } catch (err: any) {
-      // If Firebase fails completely (e.g. missing API keys), just bypass Auth
-      import('../stores/useAuthStore').then(({ useAuthStore }) => {
-        useAuthStore.getState().mockGuestLogin();
-        navigate('/');
-      });
-    }
+    await mockGuestLogin();
+    navigate('/');
   };
 
   return (

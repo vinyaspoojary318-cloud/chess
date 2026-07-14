@@ -1,17 +1,8 @@
 import { create } from 'zustand';
 import { Chess } from 'chess.js';
-import { initFirebase, getDb } from '../config/firebase';
+import { supabase } from '../config/supabase';
 import { useAuthStore } from './useAuthStore';
-import {
-  collection,
-  addDoc,
-  doc,
-  updateDoc,
-  onSnapshot,
-  serverTimestamp,
-  getDoc
-} from 'firebase/firestore';
-import type { Unsubscribe } from 'firebase/firestore';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface LiveGameState {
   gameId: string | null;
@@ -27,7 +18,7 @@ interface LiveGameState {
   leaveGame: () => void;
 }
 
-let unsubscribe: Unsubscribe | null = null;
+let channel: RealtimeChannel | null = null;
 
 export const useLiveGameStore = create<LiveGameState>((set, get) => ({
   gameId: null,
@@ -39,21 +30,19 @@ export const useLiveGameStore = create<LiveGameState>((set, get) => ({
 
   createGame: async () => {
     try {
-      initFirebase();
-      const db = getDb();
-      const userId = useAuthStore.getState().user?.uid;
+      const userId = useAuthStore.getState().user?.id;
       if (!userId) throw new Error('Not authenticated');
 
-      const docRef = await addDoc(collection(db, 'live_games'), {
+      const { data, error } = await supabase.from('live_games').insert({
         white: userId,
         black: null,
         status: 'waiting',
         moves: [],
-        createdAt: serverTimestamp(),
         result: null
-      });
+      }).select().single();
 
-      return docRef.id;
+      if (error) throw error;
+      return data.id;
     } catch (err) {
       console.error('Failed to create game:', err);
       return null;
@@ -62,20 +51,21 @@ export const useLiveGameStore = create<LiveGameState>((set, get) => ({
 
   joinGame: async (gameId: string) => {
     try {
-      initFirebase();
-      const db = getDb();
-      const userId = useAuthStore.getState().user?.uid;
+      const userId = useAuthStore.getState().user?.id;
       if (!userId) throw new Error('Not authenticated');
 
-      const docRef = doc(db, 'live_games', gameId);
-      const gameSnap = await getDoc(docRef);
-      
-      if (!gameSnap.exists()) {
+      // Fetch initial game state
+      const { data, error } = await supabase
+        .from('live_games')
+        .select('*')
+        .eq('id', gameId)
+        .single();
+        
+      if (error || !data) {
         console.error('Game not found');
         return false;
       }
 
-      const data = gameSnap.data();
       let color: 'w' | 'b' | null = null;
 
       if (data.white === userId) {
@@ -84,39 +74,28 @@ export const useLiveGameStore = create<LiveGameState>((set, get) => ({
         color = 'b';
       } else if (!data.black) {
         // Join as black
-        await updateDoc(docRef, {
-          black: userId,
-          status: 'playing'
-        });
+        const { error: updateErr } = await supabase
+          .from('live_games')
+          .update({ black: userId, status: 'playing' })
+          .eq('id', gameId);
+        if (updateErr) throw updateErr;
         color = 'b';
       } else {
-        // Game is full, could be a spectator, but we just fail for now
         console.error('Game is full');
         return false;
       }
 
       set({ gameId, color });
 
-      // Start listening
-      if (unsubscribe) unsubscribe();
-      
-      unsubscribe = onSnapshot(docRef, (snap) => {
-        if (snap.exists()) {
-          const snapData = snap.data();
-          
-          // Rebuild FEN from moves
+      const handleGameUpdate = (payloadData: any) => {
           const chess = new Chess();
-          const moveList: string[] = snapData.moves || [];
+          const moveList: string[] = payloadData.moves || [];
           for (const m of moveList) {
-            try {
-              chess.move(m);
-            } catch {
-              // Ignore invalid moves that somehow got in
-            }
+            try { chess.move(m); } catch {}
           }
 
-          let gameStatus = snapData.status;
-          let result = snapData.result;
+          let gameStatus = payloadData.status;
+          let result = payloadData.result;
 
           // Check for auto-finish
           if (gameStatus === 'playing') {
@@ -129,7 +108,7 @@ export const useLiveGameStore = create<LiveGameState>((set, get) => ({
               }
               // Update db if we are one of the players
               if (color) {
-                updateDoc(docRef, { status: gameStatus, result }).catch(() => {});
+                supabase.from('live_games').update({ status: gameStatus, result }).eq('id', gameId).then();
               }
             }
           }
@@ -140,8 +119,25 @@ export const useLiveGameStore = create<LiveGameState>((set, get) => ({
             fen: chess.fen(),
             result
           });
-        }
-      });
+      };
+
+      // Trigger initial update manually
+      handleGameUpdate(data);
+
+      // Start listening
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+      
+      channel = supabase.channel(`game_${gameId}`)
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'live_games', filter: `id=eq.${gameId}` },
+          (payload) => {
+            handleGameUpdate(payload.new);
+          }
+        )
+        .subscribe();
 
       return true;
     } catch (err) {
@@ -155,21 +151,18 @@ export const useLiveGameStore = create<LiveGameState>((set, get) => ({
     if (!gameId || status !== 'playing') return;
 
     try {
-      const db = getDb();
-      const docRef = doc(db, 'live_games', gameId);
-      
-      await updateDoc(docRef, {
-        moves: [...moves, san]
-      });
+      await supabase.from('live_games')
+        .update({ moves: [...moves, san] })
+        .eq('id', gameId);
     } catch (err) {
       console.error('Failed to make move:', err);
     }
   },
 
   leaveGame: () => {
-    if (unsubscribe) {
-      unsubscribe();
-      unsubscribe = null;
+    if (channel) {
+      supabase.removeChannel(channel);
+      channel = null;
     }
     set({
       gameId: null,
