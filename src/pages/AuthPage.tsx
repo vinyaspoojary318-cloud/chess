@@ -15,7 +15,7 @@ export function AuthPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
-      setError('Username and password are required');
+      setError('Name and password are required');
       return;
     }
     
@@ -41,9 +41,9 @@ export function AuthPage() {
       navigate('/');
     } catch (err: any) {
       if (err.message.includes('Invalid login credentials')) {
-        setError('Invalid username or password');
+        setError('Invalid name or password');
       } else if (err.message.includes('User already registered')) {
-        setError('Username already taken. Please choose another one.');
+        setError('Name already taken. Please choose another one.');
       } else {
         setError(err.message);
       }
@@ -80,7 +80,7 @@ export function AuthPage() {
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Username</label>
+            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Name</label>
             <input 
               type="text" 
               value={username}
