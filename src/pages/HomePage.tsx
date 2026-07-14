@@ -20,7 +20,7 @@ export function HomePage() {
     if (gameId) {
       navigate(`/play/${gameId}`);
     } else {
-      alert('Failed to create game. Ensure your Firebase settings are correct.');
+      alert('Failed to create game. Ensure your Supabase tables are set up and you are logged in.');
       setCreatingGame(false);
     }
   };
