@@ -7,11 +7,12 @@ interface ProgressCallback {
 }
 
 export function classifyMove(swing: number): MoveClassification {
-  const absSwing = Math.abs(swing);
-  if (absSwing > 2.0) return 'blunder';
-  if (absSwing > 1.0) return 'mistake';
-  if (absSwing > 0.5) return 'inaccuracy';
-  if (absSwing > 0.1) return 'good';
+  if (swing < -2.0) return 'brilliant';
+  if (swing < -0.5) return 'great';
+  if (swing > 2.0) return 'blunder';
+  if (swing > 1.0) return 'mistake';
+  if (swing > 0.5) return 'inaccuracy';
+  if (swing > 0.1) return 'good';
   return 'best';
 }
 
@@ -21,8 +22,8 @@ export function swingFromEval(
   turn: 'w' | 'b'
 ): number | null {
   if (evalBefore === null || evalAfter === null) return null;
-  // For white's move: if eval goes down (negative swing), it's bad for white
-  // For black's move: if eval goes up (positive swing), it's bad for black
+  // For white's move: if eval goes down (positive swing in our loss metric), it's bad for white
+  // For black's move: if eval goes up (positive swing in our loss metric), it's bad for black
   const diff = evalAfter - evalBefore;
   return turn === 'w' ? -diff : diff;
 }
@@ -36,10 +37,10 @@ export function calculateAccuracy(moves: MoveAnalysis[]): number {
 
   let totalPenalty = 0;
   for (const move of classifiedMoves) {
-    const absSwing = Math.abs(move.swing!);
-    if (absSwing > 2.0) totalPenalty += 2.0;
-    else if (absSwing > 1.0) totalPenalty += 1.0;
-    else if (absSwing > 0.5) totalPenalty += 0.5;
+    const swing = move.swing!;
+    if (swing > 2.0) totalPenalty += 2.0;
+    else if (swing > 1.0) totalPenalty += 1.0;
+    else if (swing > 0.5) totalPenalty += 0.5;
   }
 
   const maxPenalty = classifiedMoves.length * 2.0;
@@ -136,6 +137,8 @@ export async function analyzeGame(
   const inaccuracies = moves.filter(m => m.classification === 'inaccuracy').length;
   const goodMoves = moves.filter(m => m.classification === 'good').length;
   const bestMoves = moves.filter(m => m.classification === 'best').length;
+  const greatMoves = moves.filter(m => m.classification === 'great').length;
+  const brilliantMoves = moves.filter(m => m.classification === 'brilliant').length;
 
   onProgress({
     current: totalMoves,
@@ -157,6 +160,8 @@ export async function analyzeGame(
     inaccuracies,
     goodMoves,
     bestMoves,
+    greatMoves,
+    brilliantMoves,
   };
 }
 

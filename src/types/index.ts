@@ -14,6 +14,7 @@ export interface MoveAnalysis {
 
 export type MoveClassification =
   | 'brilliant'
+  | 'great'
   | 'best'
   | 'good'
   | 'inaccuracy'
@@ -35,6 +36,8 @@ export interface GameData {
   inaccuracies: number;
   goodMoves: number;
   bestMoves: number;
+  greatMoves?: number;
+  brilliantMoves?: number;
 }
 
 export interface AnalysisProgress {

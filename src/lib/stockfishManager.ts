@@ -8,8 +8,15 @@ export interface StockfishEvalResult {
   fen: string;
 }
 
+interface StockfishWorker {
+  postMessage(message: string): void;
+  onmessage: ((e: { data: string }) => void) | null;
+  onerror: ((err: any) => void) | null;
+  terminate(): void;
+}
+
 class StockfishManager {
-  private worker: Worker | null = null;
+  private worker: StockfishWorker | null = null;
   private pendingEvals: Map<string, {
     fen: string;
     depth: number;
@@ -27,31 +34,27 @@ class StockfishManager {
     if (this.initPromise) return this.initPromise;
 
     this.initPromise = new Promise<void>((resolve, reject) => {
-      try {
-        // Create a classic worker with a hash that stockfish.js detects
-        // stockfish.js checks: self.location.hash.split(",")[1] === "worker"
-        const workerUrl = '/stockfish.worker.js#worker,worker';
-        this.worker = new Worker(workerUrl, { type: 'classic' });
+      (async () => {
+        try {
+          let readyTimeout: ReturnType<typeof setTimeout>;
 
-        let readyTimeout: ReturnType<typeof setTimeout>;
-
-        this.worker.onmessage = (e: MessageEvent) => {
-          const msg = e.data;
-
+        const handleMessage = (msg: string) => {
           if (typeof msg !== 'string') return;
 
           // Check for engine initialization messages
           if (msg.startsWith('uciok') || msg.startsWith('readyok')) {
-            this.engineReady = true;
-            clearTimeout(readyTimeout);
-            this.isInitialized = true;
-            resolve();
+            if (!this.engineReady) {
+              this.engineReady = true;
+              clearTimeout(readyTimeout);
+              this.isInitialized = true;
+              resolve();
 
-            // Process any pending evaluations
-            for (const pending of this.pendingCommands) {
-              this.sendEvalCommand(pending.fen, pending.depth, pending.evalId);
+              // Process any pending evaluations
+              for (const pending of this.pendingCommands) {
+                this.sendEvalCommand(pending.fen, pending.depth, pending.evalId);
+              }
+              this.pendingCommands = [];
             }
-            this.pendingCommands = [];
             return;
           }
 
@@ -59,6 +62,69 @@ class StockfishManager {
           this.handleEngineOutput(msg);
         };
 
+        if (typeof window !== 'undefined' && typeof Worker !== 'undefined') {
+          // Browser environment
+          const workerUrl = '/stockfish.worker.js#worker,worker';
+          const nativeWorker = new Worker(workerUrl, { type: 'classic' });
+          const workerWrapper: StockfishWorker = {
+            postMessage: (msg: string) => nativeWorker.postMessage(msg),
+            onmessage: null,
+            onerror: null,
+            terminate: () => nativeWorker.terminate(),
+          };
+          nativeWorker.onmessage = (e: MessageEvent) => {
+            if (workerWrapper.onmessage) workerWrapper.onmessage({ data: e.data });
+          };
+          nativeWorker.onerror = (err) => {
+            if (workerWrapper.onerror) workerWrapper.onerror(err);
+          };
+          this.worker = workerWrapper;
+        } else {
+          // Node.js environment
+          const getReq = new Function('return typeof require !== "undefined" ? require : null');
+          const req = getReq();
+          if (!req) {
+            throw new Error('Stockfish engine is not supported in this environment');
+          }
+          const stockfishInit = req('stockfish');
+          const engineRes = typeof stockfishInit === 'function' ? stockfishInit() : stockfishInit;
+          const engine = (engineRes && typeof engineRes.then === 'function') ? await engineRes : engineRes;
+
+          const workerWrapper: StockfishWorker = {
+            onmessage: null,
+            onerror: null,
+            postMessage: (cmd: string) => {
+              if (typeof engine.postMessage === 'function') {
+                engine.postMessage(cmd);
+              } else if (typeof engine.sendCommand === 'function') {
+                engine.sendCommand(cmd);
+              }
+            },
+            terminate: () => {
+              if (typeof engine.terminate === 'function') {
+                engine.terminate();
+              }
+            }
+          };
+
+          engine.listener = (msg: string) => {
+            if (workerWrapper.onmessage) {
+              workerWrapper.onmessage({ data: msg });
+            }
+          };
+          if (typeof engine.onmessage === 'function') {
+            const origOnMessage = engine.onmessage;
+            engine.onmessage = (e: any) => {
+              const strData = typeof e === 'string' ? e : e?.data;
+              if (workerWrapper.onmessage) workerWrapper.onmessage({ data: strData });
+              if (origOnMessage && origOnMessage !== engine.onmessage) origOnMessage(e);
+            };
+          }
+
+          this.worker = workerWrapper;
+        }
+
+        this.worker.onmessage = (e) => handleMessage(e.data);
         this.worker.onerror = (err) => {
           console.error('Stockfish worker error:', err);
           clearTimeout(readyTimeout);
@@ -66,6 +132,9 @@ class StockfishManager {
             reject(new Error('Stockfish worker failed to initialize'));
           }
         };
+
+        this.worker.postMessage('uci');
+        this.worker.postMessage('isready');
 
         // Timeout for initialization
         readyTimeout = setTimeout(() => {
@@ -79,7 +148,8 @@ class StockfishManager {
       } catch (err) {
         reject(err);
       }
-    });
+    })();
+  });
 
     return this.initPromise;
   }

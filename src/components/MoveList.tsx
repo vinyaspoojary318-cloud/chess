@@ -4,6 +4,7 @@ import type { MoveClassification } from '../types';
 
 const classificationColors: Record<MoveClassification, string> = {
   brilliant: '#7b61ff',
+  great: '#5c8bb0',
   best: '#81b64c',
   good: '#81b64c',
   inaccuracy: '#f7c948',
