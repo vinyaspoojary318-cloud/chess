@@ -95,14 +95,23 @@ export function PlayPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <h2>Live Match</h2>
         {status === 'waiting' && (
-          <div style={{ background: 'var(--bg-secondary)', padding: '0.5rem 1rem', borderRadius: '4px' }}>
-            <span>Waiting for opponent... Share this link: </span>
+          <div style={{ background: 'var(--bg-secondary)', padding: '0.75rem 1.5rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '1rem', border: '2px dashed var(--primary-color)' }}>
+            <span style={{ fontWeight: 'bold' }}>Waiting for opponent...</span>
             <input 
               readOnly 
               value={inviteLink} 
-              style={{ width: '250px', padding: '0.25rem', marginLeft: '0.5rem', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }} 
+              style={{ flex: 1, padding: '0.5rem', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '4px' }} 
               onClick={(e) => (e.target as HTMLInputElement).select()}
             />
+            <button 
+              className="btn btn-primary"
+              onClick={() => {
+                navigator.clipboard.writeText(inviteLink);
+                alert('Invite link copied to clipboard! Send this to your friend.');
+              }}
+            >
+              Copy Link
+            </button>
           </div>
         )}
         {status === 'playing' && (
