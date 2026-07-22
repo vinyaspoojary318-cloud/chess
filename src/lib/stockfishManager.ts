@@ -49,7 +49,7 @@ class StockfishManager {
 
             // Process any pending evaluations
             for (const pending of this.pendingCommands) {
-              this.sendEvalCommand(pending.fen, pending.depth, pending.evalId, pending.callback);
+              this.sendEvalCommand(pending.fen, pending.depth, pending.evalId);
             }
             this.pendingCommands = [];
             return;
@@ -151,7 +151,7 @@ class StockfishManager {
 
   private currentEvalResult: StockfishEvalResult | null = null;
 
-  private sendEvalCommand(fen: string, depth: number, evalId: string, callback: EvalCallback) {
+  private sendEvalCommand(fen: string, depth: number, evalId: string) {
     if (!this.worker || !this.engineReady) return;
     this.currentEvalId = evalId;
     this.currentEvalResult = null;
@@ -196,7 +196,7 @@ class StockfishManager {
       }, 30000);
 
       if (this.engineReady) {
-        this.sendEvalCommand(fen, depth, evalId, resolve);
+        this.sendEvalCommand(fen, depth, evalId);
       } else {
         this.pendingCommands.push({ fen, depth, evalId, callback: resolve });
       }

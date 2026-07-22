@@ -12,7 +12,7 @@ export function ReviewPage() {
   const currentMoveIndex = useGameStore((s) => s.currentMoveIndex);
   const gameData = useGameStore((s) => s.gameData);
   const startAnalysis = useGameStore((s) => s.startAnalysis);
-  const goToMove = useGameStore((s) => s.goToMove);
+
   const goToStart = useGameStore((s) => s.goToStart);
   const goToEnd = useGameStore((s) => s.goToEnd);
   const stepForward = useGameStore((s) => s.stepForward);

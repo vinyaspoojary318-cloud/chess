@@ -43,9 +43,11 @@ export function ChessBoard({ boardWidth }: ChessBoardProps) {
   // Build arrows from store
   const boardArrows = arrows.map((a) => [a.startSquare, a.endSquare, a.color] as [string, string, string]);
 
+  const AnyChessboard = Chessboard as any;
+
   return (
     <div ref={containerRef} className="chess-board-container">
-      <Chessboard
+      <AnyChessboard
         id="review-board"
         boardWidth={width}
         position={fen}

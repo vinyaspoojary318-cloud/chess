@@ -136,10 +136,12 @@ export function ManualMoveEntry({ onLoaded }: ManualMoveEntryProps) {
     moveDisplay.push(text);
   }
 
+  const AnyChessboard = Chessboard as any;
+
   return (
     <div className="manual-move-entry" style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
       <div style={{ flex: '1', minWidth: '300px', maxWidth: '400px' }}>
-        <Chessboard
+        <AnyChessboard
           position={fen}
           onPieceDrop={onPieceDrop}
           customArrows={bestMoveArrow as any}

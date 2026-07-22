@@ -27,13 +27,7 @@ export function PgnUpload({ onLoaded }: PgnUploadProps) {
     try {
       // Validate PGN with chess.js
       const testChess = new Chess();
-      const loaded = testChess.loadPgn(pgnText);
-      if (!loaded) {
-        setError('Invalid PGN format. Please check the input.');
-        playErrorSound();
-        setLoading(false);
-        return;
-      }
+      testChess.loadPgn(pgnText);
 
       await loadPgn(pgnText);
       setSuccess(true);

@@ -73,7 +73,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const chess = new Chess();
     try {
       chess.loadPgn(pgn);
-    } catch (err) {
+    } catch {
       throw new Error('Invalid PGN format. Please check the input.');
     }
 
@@ -131,7 +131,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     for (let i = 0; i <= index && i < moves.length; i++) {
       try {
-        const moveResult = newChess.move(moves[i]);
+        newChess.move(moves[i]);
         if (i === index) {
           lastMoveSan = moves[i];
           // Check if this is the last move and results in game over
@@ -267,7 +267,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   })(),
 
   saveGame: async () => {
-    const { gameData, moves } = get();
+    const { gameData } = get();
     if (!gameData) return null;
 
     try {

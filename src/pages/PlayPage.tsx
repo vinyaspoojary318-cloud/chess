@@ -4,12 +4,12 @@ import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { useLiveGameStore } from '../stores/useLiveGameStore';
 import { useGameStore } from '../stores/useGameStore';
-import { useAuthStore } from '../stores/useAuthStore';
+
 
 export function PlayPage() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
-  const user = useAuthStore((s) => s.user);
+
   const { status, color, fen, moves, joinGame, makeMove, leaveGame, result } = useLiveGameStore();
   const addManualMoves = useGameStore((s) => s.addManualMoves);
 
@@ -88,6 +88,8 @@ export function PlayPage() {
     return chess.turn() === color;
   };
 
+  const AnyChessboard = Chessboard as any;
+
   return (
     <div className="play-page" style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
@@ -120,7 +122,7 @@ export function PlayPage() {
 
       <div style={{ display: 'flex', gap: '2rem' }}>
         <div style={{ flex: '1', maxWidth: '600px' }}>
-          <Chessboard
+          <AnyChessboard
             position={fen}
             onPieceDrop={onPieceDrop}
             boardOrientation={color === 'b' ? 'black' : 'white'}

@@ -11,14 +11,7 @@ const classificationColors: Record<MoveClassification, string> = {
   blunder: '#e23636',
 };
 
-const classificationLabels: Record<MoveClassification, string> = {
-  brilliant: '!!',
-  best: '',
-  good: '',
-  inaccuracy: '?!',
-  mistake: '?',
-  blunder: '??',
-};
+
 
 export function MoveList() {
   const moves = useGameStore((s) => s.moves);
@@ -50,12 +43,7 @@ export function MoveList() {
     movePairs.push(pair);
   }
 
-  const getEvalDisplay = (index: number) => {
-    const analysis = moveAnalyses[index];
-    if (!analysis || analysis.swing === null) return null;
-    const swing = Math.abs(analysis.swing);
-    return swing.toFixed(2);
-  };
+
 
   const getClassificationDot = (index: number) => {
     const analysis = moveAnalyses[index];
