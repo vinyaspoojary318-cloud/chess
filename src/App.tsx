@@ -7,6 +7,7 @@ import { SummaryPage } from './pages/SummaryPage';
 import { MyGamesPage } from './pages/MyGamesPage';
 import { AuthPage } from './pages/AuthPage';
 import { PlayPage } from './pages/PlayPage';
+import { PlayComputerPage } from './pages/PlayComputerPage';
 import { useAuthStore } from './stores/useAuthStore';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -58,6 +59,12 @@ function App() {
           <Route path="/my-games" element={
             <ProtectedRoute>
               <MyGamesPage />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/play-computer" element={
+            <ProtectedRoute>
+              <PlayComputerPage />
             </ProtectedRoute>
           } />
 
