@@ -23,7 +23,7 @@ export function AuthPage() {
     setLoading(true);
 
     try {
-      const dummyEmail = `${username.toLowerCase().replace(/[^a-z0-9]/g, '')}@example.com`;
+      const dummyEmail = `${username.toLowerCase().replace(/[^a-z0-9]/g, '')}@chess-internal-domain.com`;
       
       if (isLogin) {
         const { error: authError } = await supabase.auth.signInWithPassword({
